@@ -355,7 +355,7 @@ with question_left:
     behavioral_question = st.text_input(
         "ENTER BEHAVIORAL QUESTION",
         key="behavioral_question",
-        placeholder="Enter details...",
+        placeholder="Enter Question...",
     )
 with question_right:
     st.write("")
