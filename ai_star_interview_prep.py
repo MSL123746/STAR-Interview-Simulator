@@ -28,6 +28,28 @@ st.markdown(
         font-weight: 700 !important;
     }
 
+    /* Keep main title/subheaders as-is, but make all other UI text 16px */
+    .stApp p,
+    .stApp span,
+    .stApp label,
+    .stApp li,
+    .stApp small,
+    .stButton > button,
+    .stDownloadButton > button,
+    .stCheckbox label {
+        font-size: 16px !important;
+    }
+
+    div[data-testid="stTextInput"] input,
+    div[data-testid="stTextArea"] textarea {
+        font-size: 16px !important;
+    }
+
+    div[data-testid="stTextInput"] input::placeholder,
+    div[data-testid="stTextArea"] textarea::placeholder {
+        font-size: 16px !important;
+    }
+
     /* Professional neutral styling for top behavioral question input */
     div[data-testid="stTextInput"] input {
         width: 100% !important;
