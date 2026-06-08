@@ -51,6 +51,11 @@ st.markdown(
         font-size: 16px !important;
     }
 
+    /* Hide Streamlit helper text like 'Press Enter to apply' under inputs */
+    [data-testid="InputInstructions"] {
+        display: none !important;
+    }
+
     /* Professional neutral styling for top behavioral question input */
     div[data-testid="stTextInput"] input {
         width: 100% !important;
