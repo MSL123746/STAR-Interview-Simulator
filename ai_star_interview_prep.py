@@ -28,30 +28,40 @@ st.markdown(
         font-weight: 700 !important;
     }
 
-    /* Blue styling for the top behavioral question input */
+    /* Professional neutral styling for top behavioral question input */
     div[data-testid="stTextInput"] input {
         width: 100% !important;
-        background: #1d4ed8 !important;
-        color: #ffffff !important;
-        border: 1px solid #1e40af !important;
+        background: #f8fafc !important;
+        color: #0f172a !important;
+        border: 1px solid #cbd5e1 !important;
         border-radius: 10px !important;
     }
 
     div[data-testid="stTextInput"] input::placeholder {
-        color: #dbeafe !important;
+        color: #64748b !important;
     }
 
-    /* Match STAR narrative text areas to blue fill style */
+    div[data-testid="stTextInput"] input:focus {
+        border: 1px solid #2563eb !important;
+        box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2) !important;
+    }
+
+    /* Professional neutral styling for STAR narrative text areas */
     div[data-testid="stTextArea"] textarea {
         width: 100% !important;
-        background: #1d4ed8 !important;
-        color: #ffffff !important;
-        border: 1px solid #1e40af !important;
+        background: #f8fafc !important;
+        color: #0f172a !important;
+        border: 1px solid #cbd5e1 !important;
         border-radius: 10px !important;
     }
 
     div[data-testid="stTextArea"] textarea::placeholder {
-        color: #dbeafe !important;
+        color: #64748b !important;
+    }
+
+    div[data-testid="stTextArea"] textarea:focus {
+        border: 1px solid #2563eb !important;
+        box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2) !important;
     }
 
     div[data-testid="stTextArea"] label {
@@ -80,6 +90,36 @@ st.markdown(
         border-radius: 12px;
         background: #ffffff;
         padding: 1rem;
+    }
+
+    .brand-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 0.5rem;
+    }
+
+    .star-logo {
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        color: #fbbf24;
+        border: 1px solid #f59e0b;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        font-weight: 700;
+        line-height: 1;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+    }
+
+    .brand-title {
+        margin: 0;
+        color: #0f172a;
+        font-size: 2rem;
+        line-height: 1.15;
     }
     </style>
     """,
@@ -239,7 +279,15 @@ if "result_text" not in st.session_state:
 if "ai_followups" not in st.session_state:
     st.session_state.ai_followups = False
 
-st.title("AI-STAR™ Interview Prep | Behavioral Question & Answer Builder")
+st.markdown(
+    """
+    <div class="brand-row">
+        <div class="star-logo" aria-label="Star logo">&#9733;</div>
+        <h1 class="brand-title">AI-STAR Interview Behavioral Question &amp; Narrative Builder</h1>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 question_left, question_right = st.columns([1, 1])
 with question_left:
@@ -296,13 +344,14 @@ with left_col:
             result_text.strip(),
         ]
     )
+    question_complete = bool(behavioral_question.strip())
 
-    if not all_star_complete:
-        st.warning("Complete all 4 STAR fields to enable AI generation.")
+    if not all_star_complete or not question_complete:
+        st.warning("Complete all 4 STAR fields and enter the behavioral question to enable AI generation.")
 
     generate_clicked = st.button(
         "Generate Final Answer with AI",
-        disabled=not all_star_complete,
+        disabled=not (all_star_complete and question_complete),
     )
 
     if generate_clicked:
