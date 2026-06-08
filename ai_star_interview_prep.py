@@ -1,8 +1,9 @@
 import io
 import os
+import html
 
-import requests
 import streamlit as st
+from huggingface_hub import InferenceClient # type: ignore
 from docx import Document
 from docx.shared import Pt
 
@@ -149,16 +150,47 @@ st.markdown(
 )
 
 
-HF_MODEL = "microsoft/Phi-3-mini-4k-instruct"
+HF_MODEL = os.getenv("HF_MODEL", "microsoft/Phi-3-mini-4k-instruct")
+FALLBACK_MODELS = [
+    "meta-llama/Llama-3.1-8B-Instruct",
+    "Qwen/Qwen2.5-7B-Instruct",
+    "mistralai/Mistral-7B-Instruct-v0.3",
+]
 
 
 def get_hf_token() -> str:
-    token = st.secrets.get("HF_API_TOKEN", "") if hasattr(st, "secrets") else ""
+    # Local runs may not have a secrets.toml; accessing st.secrets can raise.
+    def _safe_secret_get(key: str) -> str:
+        try:
+            return st.secrets.get(key, "")
+        except Exception:
+            return ""
+
+    token = os.getenv("HF_TOKEN", "")
+    if not token:
+        token = _safe_secret_get("HF_TOKEN")
+    if not token:
+        token = _safe_secret_get("HF_API_TOKEN")
     if not token:
         token = os.getenv("HF_API_TOKEN", "")
     if not token:
         token = os.getenv("HUGGINGFACEHUB_API_TOKEN", "")
     return token
+
+
+@st.cache_resource
+def get_inference_client(token: str) -> InferenceClient:
+    return InferenceClient(api_key=token)
+
+
+def _candidate_models() -> list[str]:
+    # Keep preferred model first, then try known fallbacks if provider support differs.
+    models = [HF_MODEL] + FALLBACK_MODELS
+    deduped = []
+    for model in models:
+        if model and model not in deduped:
+            deduped.append(model)
+    return deduped
 
 
 def build_prompt(question: str, situation: str, task: str, action: str, result: str, add_followups: bool) -> str:
@@ -194,30 +226,37 @@ Return only the final response text.
 """
 
 
-def call_hf_inference(prompt: str, model: str, token: str) -> str:
-    url = f"https://api-inference.huggingface.co/models/{model}"
-    headers = {"Authorization": f"Bearer {token}"}
-    payload = {
-        "inputs": prompt,
-        "parameters": {
-            "max_new_tokens": 450,
-            "temperature": 0.4,
-            "top_p": 0.9,
-            "return_full_text": False,
-        },
-        "options": {"wait_for_model": True},
-    }
+def call_hf_inference(prompt: str, token: str) -> str:
+    client = get_inference_client(token)
+    last_error = None
 
-    response = requests.post(url, headers=headers, json=payload, timeout=90)
-    response.raise_for_status()
-    data = response.json()
+    for model_name in _candidate_models():
+        try:
+            completion = client.chat.completions.create(
+                model=model_name,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=500,
+                stream=False,
+            )
 
-    if isinstance(data, list) and data and "generated_text" in data[0]:
-        return data[0]["generated_text"].strip()
-    if isinstance(data, dict) and "generated_text" in data:
-        return data["generated_text"].strip()
+            if completion and completion.choices and completion.choices[0].message:
+                content = completion.choices[0].message.content
+                if isinstance(content, str) and content.strip():
+                    return content.strip()
 
-    raise ValueError("Unexpected response format from Hugging Face Inference API.")
+            last_error = ValueError(f"Unexpected response format for model '{model_name}'.")
+        except Exception as e:
+            msg = str(e)
+            last_error = e
+            if "model_not_supported" in msg or "not supported by any provider" in msg:
+                continue
+            raise
+
+    raise ValueError(
+        "No supported model was available for your enabled providers. "
+        "Set HF_MODEL in secrets/env to a model available in your HF account/providers. "
+        f"Tried: {', '.join(_candidate_models())}. Last error: {last_error}"
+    )
 
 
 def _set_times_new_roman(paragraph, size=12, bold=False):
@@ -372,7 +411,7 @@ with left_col:
         st.warning("Complete all 4 STAR fields and enter the behavioral question to enable AI generation.")
 
     generate_clicked = st.button(
-        "Generate Final Answer with AI",
+        "Generate Your AI Narrative",
         disabled=not (all_star_complete and question_complete),
     )
 
@@ -387,7 +426,7 @@ with left_col:
 
         hf_token = get_hf_token()
         if not hf_token:
-            st.error("Missing Hugging Face API token. Add HF_API_TOKEN to Streamlit secrets or environment variables.")
+            st.error("Missing Hugging Face token. Add HF_TOKEN (preferred) or HF_API_TOKEN to environment variables/secrets.")
             st.stop()
 
         prompt = build_prompt(
@@ -401,7 +440,7 @@ with left_col:
 
         with st.spinner("Generating your final STAR answer..."):
             try:
-                generated_text = call_hf_inference(prompt, HF_MODEL, hf_token)
+                generated_text = call_hf_inference(prompt, hf_token)
                 st.session_state.final_answer = generated_text
             except Exception as gen_error:
                 st.error(f"Generation failed: {gen_error}")
@@ -409,12 +448,11 @@ with left_col:
 with right_col:
     st.subheader("YOUR COMPLETED STAR NARRATIVE")
 
-    st.markdown('<div class="answer-shell">', unsafe_allow_html=True)
     if st.session_state.final_answer:
-        st.markdown(st.session_state.final_answer)
+        safe_answer_html = html.escape(st.session_state.final_answer).replace("\n", "<br>")
+        st.markdown(f'<div class="answer-shell">{safe_answer_html}</div>', unsafe_allow_html=True)
     else:
-        st.write("")
-    st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown('<div class="answer-shell">&nbsp;</div>', unsafe_allow_html=True)
 
     if st.session_state.final_answer:
         docx_bytes = build_docx_bytes(
