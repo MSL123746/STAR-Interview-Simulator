@@ -131,11 +131,13 @@ st.markdown(
         margin-bottom: 0.2rem;
     }
 
-    .star-body,
-    .star-body p,
-    .star-body span,
-    .star-body div,
-    .star-body li {
+    .answer-shell .star-body,
+    .answer-shell .star-body p,
+    .answer-shell .star-body span,
+    .answer-shell .star-body div,
+    .answer-shell .star-body li,
+    .answer-shell .star-body ol,
+    .answer-shell .star-body ul {
         font-weight: 400 !important;
         color: #1f2937;
         line-height: 1.5;
