@@ -387,7 +387,7 @@ def format_star_response_html(raw_text: str) -> str:
         return ""
 
     header_pattern = re.compile(
-        r"^(Situation|Task|Action|Result|Follow[\s-]?up Questions?)\s*:?\s*(.*)$",
+        r"^(Situation|Task|Action|Result|(?:Tailored|Customized|Additional)?\s*Follow[\s-]?up Questions?)\s*:?\s*(.*)$",
         re.IGNORECASE,
     )
     lines = cleaned.split("\n")
@@ -401,7 +401,7 @@ def format_star_response_html(raw_text: str) -> str:
         nonlocal current_header, current_lines
         if not current_header:
             return
-        is_followups = bool(re.match(r"^Follow[\s-]?up Questions?$", current_header, re.IGNORECASE))
+        is_followups = bool(re.search(r"Follow[\s-]?up Questions?", current_header, re.IGNORECASE))
         is_action = bool(re.match(r"^Action$", current_header, re.IGNORECASE))
         section_lines = [
             re.sub(r"^\s*\d+[\.)]\s+", "", re.sub(r"^\s*[-•]\s+", "", line)).strip()
@@ -412,8 +412,9 @@ def format_star_response_html(raw_text: str) -> str:
             force_numbered=(is_followups or is_action),
             allow_auto_numbered=False,
         )
+        display_header = "Follow-up Questions" if is_followups else current_header
         sections.append(
-            f'<div class="star-section"><div class="star-header">{html.escape(current_header)}</div>'
+            f'<div class="star-section"><div class="star-header">{html.escape(display_header)}</div>'
             f'<div class="star-body">{body_html}</div></div>'
         )
         current_header = None
