@@ -385,19 +385,24 @@ def format_star_response_html(raw_text: str) -> str:
     if not cleaned:
         return ""
 
-    header_pattern = re.compile(r"^(Situation|Task|Action|Result|Follow-up Questions?)\s*:?\s*(.*)$", re.IGNORECASE)
+    header_pattern = re.compile(
+        r"^(Situation|Task|Action|Result|Follow[\s-]?up Questions?)\s*:?\s*(.*)$",
+        re.IGNORECASE,
+    )
     lines = cleaned.split("\n")
 
     sections = []
     current_header = None
     current_lines: list[str] = []
+    orphan_lines: list[str] = []
 
     def _flush_section() -> None:
         nonlocal current_header, current_lines
         if not current_header:
             return
-        is_followups = bool(re.match(r"^Follow-up Questions?$", current_header, re.IGNORECASE))
-        body_html = _render_body_html(current_lines, force_numbered=is_followups)
+        is_followups = bool(re.match(r"^Follow[\s-]?up Questions?$", current_header, re.IGNORECASE))
+        is_action = bool(re.match(r"^Action$", current_header, re.IGNORECASE))
+        body_html = _render_body_html(current_lines, force_numbered=(is_followups or is_action))
         sections.append(
             f'<div class="star-section"><div class="star-header">{html.escape(current_header)}</div>'
             f'<div class="star-body">{body_html}</div></div>'
@@ -417,10 +422,15 @@ def format_star_response_html(raw_text: str) -> str:
         else:
             if current_header:
                 current_lines.append(line)
+            else:
+                orphan_lines.append(line)
 
     _flush_section()
 
     if found_header and sections:
+        if any(line.strip() for line in orphan_lines):
+            orphan_html = html.escape("\n".join(orphan_lines).strip()).replace("\n", "<br>")
+            return f'<div class="star-section"><div class="star-body">{orphan_html}</div></div>' + "".join(sections)
         return "".join(sections)
 
     # Fallback: render plain non-bold text if sections aren't present.
