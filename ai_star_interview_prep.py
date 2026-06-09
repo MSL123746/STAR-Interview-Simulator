@@ -401,13 +401,14 @@ def format_star_response_html(raw_text: str) -> str:
         if not current_header:
             return
         is_followups = bool(re.match(r"^Follow[\s-]?up Questions?$", current_header, re.IGNORECASE))
+        is_action = bool(re.match(r"^Action$", current_header, re.IGNORECASE))
         section_lines = [
             re.sub(r"^\s*\d+[\.)]\s+", "", re.sub(r"^\s*[-•]\s+", "", line)).strip()
             for line in current_lines
         ]
         body_html = _render_body_html(
             section_lines,
-            force_numbered=is_followups,
+            force_numbered=(is_followups or is_action),
             allow_auto_numbered=False,
         )
         sections.append(
