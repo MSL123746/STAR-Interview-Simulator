@@ -364,10 +364,10 @@ def reset_all_fields():
     st.session_state.final_answer = ""
 
 
-def _render_body_html(lines: list[str], force_numbered: bool = False) -> str:
+def _render_body_html(lines: list[str], force_numbered: bool = False, allow_auto_numbered: bool = True) -> str:
     non_empty = [line for line in lines if line.strip()]
     is_numbered = non_empty and all(re.match(r"^\d+[\.)]\s+", line) for line in non_empty)
-    if non_empty and (is_numbered or force_numbered):
+    if non_empty and ((allow_auto_numbered and is_numbered) or force_numbered):
         items = []
         for line in non_empty:
             item = re.sub(r"^\d+[\.)]\s+", "", line).strip()
@@ -401,14 +401,15 @@ def format_star_response_html(raw_text: str) -> str:
         if not current_header:
             return
         is_followups = bool(re.match(r"^Follow[\s-]?up Questions?$", current_header, re.IGNORECASE))
-        is_action = bool(re.match(r"^Action$", current_header, re.IGNORECASE))
-        section_lines = current_lines
-        if is_followups:
-            section_lines = [
-                re.sub(r"^\s*\d+[\.)]\s+", "", re.sub(r"^\s*[-•]\s+", "", line)).strip()
-                for line in current_lines
-            ]
-        body_html = _render_body_html(section_lines, force_numbered=is_action)
+        section_lines = [
+            re.sub(r"^\s*\d+[\.)]\s+", "", re.sub(r"^\s*[-•]\s+", "", line)).strip()
+            for line in current_lines
+        ]
+        body_html = _render_body_html(
+            section_lines,
+            force_numbered=is_followups,
+            allow_auto_numbered=False,
+        )
         sections.append(
             f'<div class="star-section"><div class="star-header">{html.escape(current_header)}</div>'
             f'<div class="star-body">{body_html}</div></div>'
