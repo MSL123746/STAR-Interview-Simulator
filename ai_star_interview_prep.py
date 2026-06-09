@@ -233,7 +233,7 @@ def _candidate_models() -> list[str]:
 
 def build_prompt(question: str, situation: str, task: str, action: str, result: str, add_followups: bool) -> str:
     followup_instruction = (
-        "Then add exactly 2 tailored follow-up interview questions after the final answer under a header 'Follow-up Questions'. "
+        "Then add exactly 2 tailored follow-up interview questions after the final answer under the exact header 'Follow-up Questions'. "
         "Output them as 2 separate numbered lines only (1. and 2.) with no extra explanation."
         if add_followups
         else "Do not add follow-up questions."
@@ -254,13 +254,30 @@ Result: {result}
 Requirements:
 1) Produce a cohesive final answer that sounds natural, specific, and impactful.
 2) Keep the response concise but substantive.
-3) Use a clear structure with these bold section headers:
-- Situation
-- Task
-- Action
-- Result
-4) In the Action section, format steps as a numbered list (1., 2., 3., ...).
-5) {followup_instruction}
+3) Use this exact output structure and exact header text (including punctuation):
+The Situation:
+<1 short paragraph>
+
+The Task:
+<1 short paragraph>
+
+The Action Plan:
+To address this pressing concern, I took the following steps
+1. <step>
+2. <step>
+3. <step>
+4. <step>
+
+The Result:
+<1 short paragraph>
+
+Follow-up Questions
+1. <question>
+2. <question>
+
+4) Keep the Action Plan as a numbered list (1., 2., 3., ...), with at least 3 steps.
+5) If follow-up questions are not requested, omit the entire Follow-up Questions section.
+6) {followup_instruction}
 
 Return only the final response text.
 """
@@ -387,7 +404,7 @@ def format_star_response_html(raw_text: str) -> str:
         return ""
 
     header_pattern = re.compile(
-        r"^(Situation|Task|Action|Result|(?:Tailored|Customized|Additional)?\s*Follow[\s-]?up Questions?)"
+        r"^(?:The\s+)?(Situation|Task|Action(?:\s+Plan)?|Result|(?:Tailored|Customized|Additional)?\s*Follow[\s-]?up Questions?)"
         r"(?:\s*\([^)]*\))?(?:\s*[-\u2013\u2014]\s*[^:]*)?\s*:?\s*(.*)$",
         re.IGNORECASE,
     )
@@ -403,7 +420,7 @@ def format_star_response_html(raw_text: str) -> str:
         if not current_header:
             return
         is_followups = bool(re.search(r"Follow[\s-]?up Questions?", current_header, re.IGNORECASE))
-        is_action = bool(re.match(r"^Action$", current_header, re.IGNORECASE))
+        is_action = bool(re.match(r"^Action(?:\s+Plan)?$", current_header, re.IGNORECASE))
         section_lines = [
             re.sub(r"^\s*\d+[\.)]\s+", "", re.sub(r"^\s*[-•]\s+", "", line)).strip()
             for line in current_lines
@@ -413,7 +430,18 @@ def format_star_response_html(raw_text: str) -> str:
             force_numbered=(is_followups or is_action),
             allow_auto_numbered=False,
         )
-        display_header = "Follow-up Questions" if is_followups else current_header
+        if is_followups:
+            display_header = "Follow-up Questions"
+        elif is_action:
+            display_header = "The Action Plan:"
+        elif re.match(r"^Situation$", current_header, re.IGNORECASE):
+            display_header = "The Situation:"
+        elif re.match(r"^Task$", current_header, re.IGNORECASE):
+            display_header = "The Task:"
+        elif re.match(r"^Result$", current_header, re.IGNORECASE):
+            display_header = "The Result:"
+        else:
+            display_header = current_header
         sections.append(
             f'<div class="star-section"><div class="star-header">{html.escape(display_header)}</div>'
             f'<div class="star-body">{body_html}</div></div>'
