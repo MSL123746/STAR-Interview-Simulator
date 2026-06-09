@@ -233,7 +233,8 @@ def _candidate_models() -> list[str]:
 
 def build_prompt(question: str, situation: str, task: str, action: str, result: str, add_followups: bool) -> str:
     followup_instruction = (
-        "Then add exactly 2 tailored follow-up interview questions after the final answer under a header 'Follow-up Questions'."
+        "Then add exactly 2 tailored follow-up interview questions after the final answer under a header 'Follow-up Questions'. "
+        "Output them as 2 separate numbered lines only (1. and 2.) with no extra explanation."
         if add_followups
         else "Do not add follow-up questions."
     )
