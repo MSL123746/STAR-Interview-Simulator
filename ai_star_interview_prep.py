@@ -485,11 +485,28 @@ def format_star_response_html(raw_text: str) -> str:
         if not merged_lines:
             continue
 
-        body_html = _render_body_html(
-            merged_lines,
-            force_numbered=(key == "Action Plan" or key == "Follow-up Questions"),
-            allow_auto_numbered=False,
-        )
+        if key == "Action Plan":
+            intro_lines: list[str] = []
+            action_steps = merged_lines
+            if merged_lines:
+                first_line = merged_lines[0].strip()
+                if re.search(r"following\s+steps\s*:?$", first_line, re.IGNORECASE):
+                    intro_lines = [first_line]
+                    action_steps = merged_lines[1:]
+
+            intro_html = ""
+            if intro_lines:
+                intro_html = _render_body_html(intro_lines, force_numbered=False, allow_auto_numbered=False)
+                intro_html = f"<div>{intro_html}</div>"
+
+            steps_html = _render_body_html(action_steps, force_numbered=True, allow_auto_numbered=False)
+            body_html = f"{intro_html}{steps_html}"
+        else:
+            body_html = _render_body_html(
+                merged_lines,
+                force_numbered=(key == "Follow-up Questions"),
+                allow_auto_numbered=False,
+            )
         if key == "Situation":
             display_header = "The Situation:"
         elif key == "Task":
