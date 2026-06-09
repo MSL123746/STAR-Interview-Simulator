@@ -387,7 +387,8 @@ def format_star_response_html(raw_text: str) -> str:
         return ""
 
     header_pattern = re.compile(
-        r"^(Situation|Task|Action|Result|(?:Tailored|Customized|Additional)?\s*Follow[\s-]?up Questions?)\s*:?\s*(.*)$",
+        r"^(Situation|Task|Action|Result|(?:Tailored|Customized|Additional)?\s*Follow[\s-]?up Questions?)"
+        r"(?:\s*\([^)]*\))?(?:\s*[-\u2013\u2014]\s*[^:]*)?\s*:?\s*(.*)$",
         re.IGNORECASE,
     )
     lines = cleaned.split("\n")
