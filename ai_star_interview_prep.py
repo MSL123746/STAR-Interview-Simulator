@@ -148,6 +148,11 @@ st.markdown(
         padding-left: 0.6rem;
     }
 
+    .answer-shell .star-list li::marker {
+        font-weight: 700 !important;
+        color: #0f172a;
+    }
+
     .brand-row {
         display: flex;
         align-items: center;
@@ -359,12 +364,14 @@ def reset_all_fields():
     st.session_state.final_answer = ""
 
 
-def _render_body_html(lines: list[str]) -> str:
+def _render_body_html(lines: list[str], force_numbered: bool = False) -> str:
     non_empty = [line for line in lines if line.strip()]
-    if non_empty and all(re.match(r"^\d+[\.)]\s+", line) for line in non_empty):
+    is_numbered = non_empty and all(re.match(r"^\d+[\.)]\s+", line) for line in non_empty)
+    if non_empty and (is_numbered or force_numbered):
         items = []
         for line in non_empty:
             item = re.sub(r"^\d+[\.)]\s+", "", line).strip()
+            item = re.sub(r"^[-•]\s+", "", item).strip()
             items.append(f"<li>{html.escape(item)}</li>")
         return f'<ol class="star-list">{"".join(items)}</ol>'
 
@@ -389,7 +396,8 @@ def format_star_response_html(raw_text: str) -> str:
         nonlocal current_header, current_lines
         if not current_header:
             return
-        body_html = _render_body_html(current_lines)
+        is_followups = bool(re.match(r"^Follow-up Questions?$", current_header, re.IGNORECASE))
+        body_html = _render_body_html(current_lines, force_numbered=is_followups)
         sections.append(
             f'<div class="star-section"><div class="star-header">{html.escape(current_header)}</div>'
             f'<div class="star-body">{body_html}</div></div>'
