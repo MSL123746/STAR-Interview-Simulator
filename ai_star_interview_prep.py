@@ -225,7 +225,8 @@ Requirements:
 - Task
 - Action
 - Result
-4) {followup_instruction}
+4) In the Action section, format steps as a numbered list (1., 2., 3., ...).
+5) {followup_instruction}
 
 Return only the final response text.
 """
