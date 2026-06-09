@@ -371,7 +371,8 @@ def _render_body_html(lines: list[str]) -> str:
 
 
 def format_star_response_html(raw_text: str) -> str:
-    cleaned = raw_text.replace("*", "").replace("\r\n", "\n").strip()
+    cleaned = raw_text.replace("*", "").replace("\r\n", "\n")
+    cleaned = re.sub(r"(?m)^\s*#{1,6}\s*", "", cleaned).strip()
     if not cleaned:
         return ""
 
