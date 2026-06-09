@@ -1,6 +1,7 @@
 import io
 import os
 import html
+import re
 
 import streamlit as st
 from huggingface_hub import InferenceClient # type: ignore
@@ -118,6 +119,31 @@ st.markdown(
         border-radius: 12px;
         background: #ffffff;
         padding: 1rem;
+    }
+
+    .star-section {
+        margin-bottom: 0.85rem;
+    }
+
+    .star-header {
+        font-weight: 700 !important;
+        color: #0f172a;
+        margin-bottom: 0.2rem;
+    }
+
+    .star-body,
+    .star-body p,
+    .star-body span,
+    .star-body div,
+    .star-body li {
+        font-weight: 400 !important;
+        color: #1f2937;
+        line-height: 1.5;
+    }
+
+    .star-list {
+        margin: 0.25rem 0 0.25rem 1.25rem;
+        padding-left: 0.6rem;
     }
 
     .brand-row {
@@ -331,6 +357,66 @@ def reset_all_fields():
     st.session_state.final_answer = ""
 
 
+def _render_body_html(lines: list[str]) -> str:
+    non_empty = [line for line in lines if line.strip()]
+    if non_empty and all(re.match(r"^\d+[\.)]\s+", line) for line in non_empty):
+        items = []
+        for line in non_empty:
+            item = re.sub(r"^\d+[\.)]\s+", "", line).strip()
+            items.append(f"<li>{html.escape(item)}</li>")
+        return f'<ol class="star-list">{"".join(items)}</ol>'
+
+    escaped = html.escape("\n".join(lines).strip())
+    return escaped.replace("\n", "<br>")
+
+
+def format_star_response_html(raw_text: str) -> str:
+    cleaned = raw_text.replace("*", "").replace("\r\n", "\n").strip()
+    if not cleaned:
+        return ""
+
+    header_pattern = re.compile(r"^(Situation|Task|Action|Result|Follow-up Questions?)\s*:?\s*(.*)$", re.IGNORECASE)
+    lines = cleaned.split("\n")
+
+    sections = []
+    current_header = None
+    current_lines: list[str] = []
+
+    def _flush_section() -> None:
+        nonlocal current_header, current_lines
+        if not current_header:
+            return
+        body_html = _render_body_html(current_lines)
+        sections.append(
+            f'<div class="star-section"><div class="star-header">{html.escape(current_header)}</div>'
+            f'<div class="star-body">{body_html}</div></div>'
+        )
+        current_header = None
+        current_lines = []
+
+    found_header = False
+    for line in lines:
+        match = header_pattern.match(line.strip())
+        if match:
+            found_header = True
+            _flush_section()
+            current_header = match.group(1)
+            trailing = match.group(2).strip()
+            current_lines = [trailing] if trailing else []
+        else:
+            if current_header:
+                current_lines.append(line)
+
+    _flush_section()
+
+    if found_header and sections:
+        return "".join(sections)
+
+    # Fallback: render plain non-bold text if sections aren't present.
+    fallback = html.escape(cleaned).replace("\n", "<br>")
+    return f'<div class="star-body">{fallback}</div>'
+
+
 if "final_answer" not in st.session_state:
     st.session_state.final_answer = ""
 if "behavioral_question" not in st.session_state:
@@ -455,8 +541,8 @@ with right_col:
     st.subheader("YOUR COMPLETED STAR NARRATIVE")
 
     if st.session_state.final_answer:
-        safe_answer_html = html.escape(st.session_state.final_answer).replace("\n", "<br>")
-        st.markdown(f'<div class="answer-shell">{safe_answer_html}</div>', unsafe_allow_html=True)
+        rendered_response_html = format_star_response_html(st.session_state.final_answer)
+        st.markdown(f'<div class="answer-shell">{rendered_response_html}</div>', unsafe_allow_html=True)
     else:
         st.markdown('<div class="answer-shell">&nbsp;</div>', unsafe_allow_html=True)
 
