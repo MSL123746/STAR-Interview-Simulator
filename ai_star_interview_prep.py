@@ -411,6 +411,13 @@ def format_star_response_html(raw_text: str) -> str:
     lines = cleaned.split("\n")
 
     sections = []
+    merged_sections: dict[str, list[str]] = {
+        "Situation": [],
+        "Task": [],
+        "Action Plan": [],
+        "Result": [],
+        "Follow-up Questions": [],
+    }
     current_header = None
     current_lines: list[str] = []
     orphan_lines: list[str] = []
@@ -425,27 +432,33 @@ def format_star_response_html(raw_text: str) -> str:
             re.sub(r"^\s*\d+[\.)]\s+", "", re.sub(r"^\s*[-•]\s+", "", line)).strip()
             for line in current_lines
         ]
-        body_html = _render_body_html(
-            section_lines,
-            force_numbered=(is_followups or is_action),
-            allow_auto_numbered=False,
-        )
         if is_followups:
-            display_header = "Follow-up Questions"
+            canonical_header = "Follow-up Questions"
         elif is_action:
-            display_header = "The Action Plan:"
+            canonical_header = "Action Plan"
         elif re.match(r"^Situation$", current_header, re.IGNORECASE):
-            display_header = "The Situation:"
+            canonical_header = "Situation"
         elif re.match(r"^Task$", current_header, re.IGNORECASE):
-            display_header = "The Task:"
+            canonical_header = "Task"
         elif re.match(r"^Result$", current_header, re.IGNORECASE):
-            display_header = "The Result:"
+            canonical_header = "Result"
         else:
-            display_header = current_header
-        sections.append(
-            f'<div class="star-section"><div class="star-header">{html.escape(display_header)}</div>'
-            f'<div class="star-body">{body_html}</div></div>'
-        )
+            canonical_header = current_header
+
+        if canonical_header in merged_sections:
+            for line in section_lines:
+                if line:
+                    merged_sections[canonical_header].append(line)
+        else:
+            body_html = _render_body_html(
+                section_lines,
+                force_numbered=(is_followups or is_action),
+                allow_auto_numbered=False,
+            )
+            sections.append(
+                f'<div class="star-section"><div class="star-header">{html.escape(canonical_header)}</div>'
+                f'<div class="star-body">{body_html}</div></div>'
+            )
         current_header = None
         current_lines = []
 
@@ -465,6 +478,33 @@ def format_star_response_html(raw_text: str) -> str:
                 orphan_lines.append(line)
 
     _flush_section()
+
+    # Render known sections in fixed order, merging repeated headings.
+    for key in ["Situation", "Task", "Action Plan", "Result", "Follow-up Questions"]:
+        merged_lines = merged_sections[key]
+        if not merged_lines:
+            continue
+
+        body_html = _render_body_html(
+            merged_lines,
+            force_numbered=(key == "Action Plan" or key == "Follow-up Questions"),
+            allow_auto_numbered=False,
+        )
+        if key == "Situation":
+            display_header = "The Situation:"
+        elif key == "Task":
+            display_header = "The Task:"
+        elif key == "Action Plan":
+            display_header = "The Action Plan:"
+        elif key == "Result":
+            display_header = "The Result:"
+        else:
+            display_header = "Follow-up Questions"
+
+        sections.append(
+            f'<div class="star-section"><div class="star-header">{html.escape(display_header)}</div>'
+            f'<div class="star-body">{body_html}</div></div>'
+        )
 
     if found_header and sections:
         if any(line.strip() for line in orphan_lines):
