@@ -674,7 +674,7 @@ with right_col:
         )
 
         st.download_button(
-            "Download Answer as MS Word Doc (.docx)",
+            "Download Narrative as MS Word Doc (.docx)",
             data=docx_bytes,
             file_name="ai_star_answer.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -682,7 +682,7 @@ with right_col:
         )
     else:
         st.download_button(
-            "Download Answer as MS Word Doc (.docx)",
+            "Download Narrative as MS Word Doc (.docx)",
             data=b"",
             file_name="ai_star_answer.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
