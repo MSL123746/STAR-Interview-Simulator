@@ -977,7 +977,7 @@ with tab_star:
                     st.error(f"Generation failed: {gen_error}")
 
     with right_col:
-        st.subheader("YOUR COMPLETED STAR NARRATIVE")
+        st.subheader("YOUR STAR NARRATIVE")
 
         if st.session_state.final_answer:
             rendered_response_html = format_star_response_html(st.session_state.final_answer)
