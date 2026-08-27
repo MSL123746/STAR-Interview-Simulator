@@ -1137,7 +1137,7 @@ with tab_elevator:
     with elevator_right_col:
         st.markdown("### 30-Second Elevator Pitch")
         submit_elevator = st.button(
-            "Submit",
+            "Generate Elevator Pitch",
             use_container_width=True,
             key="submit_elevator_btn",
             disabled=elevator_has_profanity,
