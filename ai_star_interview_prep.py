@@ -873,10 +873,11 @@ tab_star, tab_story, tab_elevator = st.tabs(
 with tab_star:
     question_left, question_right = st.columns([1, 1])
     with question_left:
-        behavioral_question = st.text_input(
+        behavioral_question = st.text_area(
             "ENTER BEHAVIORAL QUESTION",
             key="behavioral_question",
             placeholder="Enter Question...",
+            height=110,
         )
     with question_right:
         st.write("")
