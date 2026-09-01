@@ -12,6 +12,9 @@ from docx.shared import Pt
 
 st.set_page_config(page_title="AI-STAR Interview Prep", layout="wide")
 
+MAX_RESUME_BYTES = 40 * 1024
+MAX_RESUME_WORDS = 1000
+
 st.markdown(
     """
     <style>
@@ -154,6 +157,16 @@ st.markdown(
         color: #0f172a;
     }
 
+    /* Keep the Tell Me About Yourself narrative output in normal weight */
+    div[data-testid="stMarkdownContainer"],
+    div[data-testid="stMarkdownContainer"] p,
+    div[data-testid="stMarkdownContainer"] li,
+    div[data-testid="stMarkdownContainer"] strong,
+    div[data-testid="stMarkdownContainer"] em,
+    div[data-testid="stMarkdownContainer"] span {
+        font-weight: 400 !important;
+    }
+
     .brand-row {
         display: flex;
         align-items: center;
@@ -182,6 +195,14 @@ st.markdown(
         color: #0f172a;
         font-size: 2rem;
         line-height: 1.15;
+    }
+
+    /* Hide the default Streamlit uploader size note so only the app's 40 KB rule is visible */
+    .stFileUploader small,
+    .stFileUploader [data-testid="stFileUploaderDropzoneInstructions"],
+    .stFileUploader [data-testid="stFileUploaderDropzoneInstructions"] small,
+    .stFileUploader [data-testid="stFileUploaderDropzoneInstructions"] span {
+        display: none !important;
     }
     </style>
     """,
@@ -397,6 +418,28 @@ def build_docx_bytes(question: str, situation: str, task: str, action: str, resu
     doc.save(buffer)
     buffer.seek(0)
     return buffer.getvalue()
+
+
+def validate_resume_upload(uploaded_file) -> tuple[bool, str, str]:
+    if uploaded_file is None:
+        return False, "", "No resume uploaded."
+
+    uploaded_file.seek(0, os.SEEK_END)
+    file_size = uploaded_file.tell()
+    uploaded_file.seek(0)
+
+    if file_size > MAX_RESUME_BYTES:
+        return False, "", f"Resume exceeds the 40 KB limit. Please upload a smaller resume file."
+
+    resume_text = extract_resume_text(uploaded_file)
+    if not resume_text.strip():
+        return False, "", "The uploaded resume appears empty or unreadable."
+
+    word_count = len(re.findall(r"\b\w+\b", resume_text))
+    if word_count > MAX_RESUME_WORDS:
+        return False, "", f"Resume exceeds the 1,000-word limit ({word_count} words). Please upload a shorter resume."
+
+    return True, resume_text, ""
 
 
 def extract_resume_text(uploaded_file) -> str:
@@ -1033,18 +1076,27 @@ with tab_story:
 
         if project_description.strip():
             st.markdown("### Upload Resume")
+            st.caption("Resume file limit: 40 KB max.")
             uploaded_resume = st.file_uploader(
-                "Upload your resume (PDF, DOCX, or TXT)",
-                type=["pdf", "docx", "txt"],
+                "Upload your resume (DOCX or TXT)",
+                type=["docx", "txt"],
                 key="resume_upload",
             )
 
             if uploaded_resume is not None:
-                st.success(f"Uploaded: {uploaded_resume.name}")
-                if st.button("Remove uploaded resume", key="remove_resume"):
+                is_valid, _, validation_message = validate_resume_upload(uploaded_resume)
+                if not is_valid:
+                    st.error(validation_message)
                     st.session_state.pop("resume_upload", None)
                     st.session_state.pop("resume_text", None)
+                    uploaded_resume = None
                     st.rerun()
+                else:
+                    st.success(f"Uploaded: {uploaded_resume.name}")
+                    if st.button("Remove uploaded resume", key="remove_resume"):
+                        st.session_state.pop("resume_upload", None)
+                        st.session_state.pop("resume_text", None)
+                        st.rerun()
         else:
             st.info("Add your job description to unlock resume upload.")
             uploaded_resume = None
@@ -1056,11 +1108,18 @@ with tab_story:
         story_resume_has_profanity = False
 
         if resume_uploaded:
-            resume_text_for_gate = extract_resume_text(uploaded_resume)
-            st.session_state["resume_text"] = resume_text_for_gate
-            story_resume_has_profanity = has_profanity(resume_text_for_gate)
-            if story_resume_has_profanity:
-                st.error("Profanity detected in uploaded resume content. Remove it to enable generation.")
+            is_valid, resume_text_for_gate, validation_message = validate_resume_upload(uploaded_resume)
+            if not is_valid:
+                st.error(validation_message)
+                resume_uploaded = False
+                uploaded_resume = None
+                st.session_state.pop("resume_upload", None)
+                st.session_state.pop("resume_text", None)
+            else:
+                st.session_state["resume_text"] = resume_text_for_gate
+                story_resume_has_profanity = has_profanity(resume_text_for_gate)
+                if story_resume_has_profanity:
+                    st.error("Profanity detected in uploaded resume content. Remove it to enable generation.")
 
         if resume_uploaded:
             generate_narrative = st.button(
